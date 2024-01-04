@@ -5,7 +5,7 @@ const { ObjectId } = require('mongodb');
 //~ init app & middlewares
 
 const app = express();
-
+app.use(express.json());
 //~ db connection
 
 let db;
@@ -28,10 +28,14 @@ app.get('/books', (req, res) => {
     // res.json({mssg: "Welcome to the api"});
 
     let books = [];
+    let page = req.query.p || 0;
+    let booksPerPage = 3;
 
     db.collection('books')
         .find()
         .sort({author: 1})
+        .skip(page * booksPerPage)
+        .limit(booksPerPage)
         .forEach(book => books.push(book))
         .then(() => {
             res.status(200).send(books)
@@ -64,3 +68,55 @@ app.get('/books/:id', (req, res) => {
     
 
 });
+
+app.post('/books', (req, res) => {
+
+    const body = req.body;
+    db.collection('books')
+        .insertOne(body)
+        .then((result) =>{
+            res.status(201).send(result);
+        })
+        .catch((err) => {
+            res.status(500).json({error: 'Could not insert book'});
+        })
+});
+
+app.delete('/books/:id', (req, res) => {
+    const id = req.params.id;
+
+    if(ObjectId.isValid(id)){
+        db.collection('books')
+        .deleteOne({_id: new ObjectId(id)})
+        .then((result) => {
+            res.status(200).json(result);
+        })
+        .catch((err) => {
+            res.status(500).json({
+                error: "Book was not deleted",
+            });
+        });
+    }else{
+        res.status(500).json({error:'Invalid book ID'})
+    }
+
+
+})
+
+app.patch('/books/:id', (req, res) => {
+    const id = req.params.id;
+    const body = req.body;
+
+    if(ObjectId.isValid(id)){
+        db.collection('books')
+            .updateOne({_id: new ObjectId(id)}, {$set: body})
+            .then(result => {
+                res.status(200).json(result);
+            })
+            .catch(()=>{
+                res.status(400).json({error: "Update failed"});
+            })
+    }else{
+        res.status(400).json({error: 'Invalid book ID'});
+    }
+})
